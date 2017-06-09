@@ -4,7 +4,8 @@ Deze Andriod app laat zien hoe er met de MQTT broker van The Things Network kan 
 De app maakt gebruik van de [Paho](http://www.eclipse.org/paho/clients/android/) library om te verbinden over MQTT.
 
 Voor de app verbinding kan maken met de MQTT broker. 
-In the MainActivity zijn er drie waardes die moeten worden ingevuld om 
+In the MainActivity zijn er drie waardes die moeten worden ingevuld om te kunnen verbinden met de MQTT broker. 
+Deze waardes zijn te vinden in de TTN dashboard.
 
 ```
 public class MainActivity extends AppCompatActivity implements MQTTService.MQTTMessageListener {
