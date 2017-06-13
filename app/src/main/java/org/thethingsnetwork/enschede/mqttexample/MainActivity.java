@@ -1,17 +1,16 @@
 package org.thethingsnetwork.enschede.mqttexample;
 
+import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ListView;
-import android.widget.Toast;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.thethingsnetwork.enschede.mqttexample.model.Model;
 import org.thethingsnetwork.enschede.mqttexample.model.TTNMessage;
 import org.thethingsnetwork.enschede.mqttexample.service.MQTTService;
-
-import static android.widget.Toast.LENGTH_LONG;
 
 public class MainActivity extends AppCompatActivity implements MQTTService.MQTTMessageListener {
 
@@ -20,6 +19,7 @@ public class MainActivity extends AppCompatActivity implements MQTTService.MQTTM
     //TODO: Configure these properties to connect to MQTT broker.
     // You can find the values in the TTN dashboard.
     private final String region = "eu";
+    private final String deviceId = "";
     private final String applicationId = "";
     private final String applicationAccessKey = "";
 
@@ -36,11 +36,20 @@ public class MainActivity extends AppCompatActivity implements MQTTService.MQTTM
 
         mqttService = new MQTTService();
         mqttService.setMqttRegion(region);
+        mqttService.setDeviceId(deviceId);
         mqttService.setApplicationId(applicationId);
         mqttService.setApplicationAccessKey(applicationAccessKey);
 
         mqttService.registerCallback(this);
         mqttService.connect(this);
+
+        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                mqttService.publish("!");
+            }
+        });
     }
 
     @Override

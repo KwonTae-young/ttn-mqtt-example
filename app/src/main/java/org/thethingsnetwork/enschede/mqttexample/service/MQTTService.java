@@ -1,7 +1,7 @@
 package org.thethingsnetwork.enschede.mqttexample.service;
 
 import android.content.Context;
-import android.content.SharedPreferences;
+import android.util.Base64;
 import android.util.Log;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
@@ -14,6 +14,11 @@ import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.UnsupportedEncodingException;
 
 /**
  * A service object to handle connecting and subscribing to the TTN MQTT broker.
@@ -27,14 +32,16 @@ public class MQTTService {
     private final String MQTT_USERNAME_KEY = "mqttusername";
     private final String MQTT_PASSWORD_KEY = "mqttpassword";
     private final String MQTT_TOPIC_KEY = "mqtttopicproduction";
-    private final String MQTT_DEFAULT_TOPIC = "+/devices/#";
+    private final String MQTT_DEFAULT_TOPIC = "/devices/";
 
     private final String clientId = "ttn-mqtt-client";
 
     private String mqttRegion;
     private String mqttUser;
     private String mqttPassword;
-    private String mqttTopic;
+    private String mqttSubscribeTopic;
+    private String mqttPublishTopic;
+    private String mqttDevice;
 
     private MqttAndroidClient mqttAndroidClient;
 
@@ -51,19 +58,30 @@ public class MQTTService {
      * Get the MQTT topic to subcribe to.
      * @return  The MQTT topic to subcribe to.
      */
-    public String getMqttTopic() {
-        if (mqttTopic == null) {
-            mqttTopic = MQTT_DEFAULT_TOPIC;
+    public String getMqttSubscribeTopic() {
+        if (mqttSubscribeTopic == null) {
+            String deviceId = "#";
+            if (mqttDevice != null && !"".equals(mqttDevice)) {
+                deviceId = mqttDevice + "/up";
+            }
+            mqttSubscribeTopic = mqttUser + MQTT_DEFAULT_TOPIC + deviceId;
         }
-        return mqttTopic;
+        return mqttSubscribeTopic;
     }
 
     /**
-     * Set the MQTT topic to subcribe to.
-     * @param mqttTopic The MQTT topic to subcribe to.
+     * Get the MQTT topic to publish to.
+     * @return  The MQTT topic to publish to.
      */
-    public void setMqttTopic(String mqttTopic) {
-        this.mqttTopic = mqttTopic;
+    public String getMqttPublishTopic() {
+        if (mqttPublishTopic == null) {
+            String deviceId = "#";
+            if (mqttDevice != null && !"".equals(mqttDevice)) {
+                deviceId = mqttDevice + "/down";
+            }
+            mqttPublishTopic = mqttUser + MQTT_DEFAULT_TOPIC + deviceId;
+        }
+        return mqttPublishTopic;
     }
 
     /**
@@ -97,6 +115,23 @@ public class MQTTService {
     public void setApplicationAccessKey(String applicationAccessKey) {
         this.mqttPassword = applicationAccessKey;
     }
+
+    /**
+     * Get the device id to subribe or publish to.
+     * @return  The id of the device
+     */
+    public String getDeviceId() {
+        return mqttDevice;
+    }
+
+    /**
+     * Set the device id to subribe or publish to.
+     * @param deviceId    The id of the device
+     */
+    public void setDeviceId(String deviceId) {
+        this.mqttDevice = deviceId;
+    }
+
 
     /**
      * A callback interface to notify activity for messages received from the broker.
@@ -196,7 +231,7 @@ public class MQTTService {
      */
     private void subscribeToTopic(){
         try {
-            mqttAndroidClient.subscribe(getMqttTopic(), 0, null, new IMqttActionListener() {
+            mqttAndroidClient.subscribe(getMqttSubscribeTopic(), 0, null, new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     Log.d(LOG_TAG, "Subscribed!");
@@ -211,6 +246,43 @@ public class MQTTService {
         } catch (MqttException ex){
             System.err.println("Exception whilst subscribing");
             ex.printStackTrace();
+        }
+    }
+
+    public void publish(String message) {
+
+        // Ignore 'long' messages.
+        if (message.length() > 3) {
+            Log.d(LOG_TAG, "Will not send downlink message with lenght greater than 3");
+            return;
+        }
+
+        try {
+            // Create a base64 encoded message for the payload.
+            byte[] data = message.getBytes("UTF-8");
+            String base64 = Base64.encodeToString(data, Base64.DEFAULT);
+
+            // Create JSON payload for raw bytes.
+            JSONObject payload = new JSONObject();
+            payload.put("payload_raw", base64);
+
+            // Create MQTT message and publish it.
+            MqttMessage mqttMessage = new MqttMessage();
+            mqttMessage.setPayload(payload.toString().getBytes());
+            mqttAndroidClient.publish(getMqttPublishTopic(), mqttMessage);
+
+            if(!mqttAndroidClient.isConnected()){
+                Log.d(LOG_TAG, mqttAndroidClient.getBufferedMessageCount() + " messages in buffer.");
+            }
+        } catch (UnsupportedEncodingException e) {
+            Log.d(LOG_TAG, "Error base64 encoding message: " + e.getMessage());
+            e.printStackTrace();
+        } catch (JSONException e) {
+            Log.d(LOG_TAG, "Error creating JSON payload: " + e.getMessage());
+            e.printStackTrace();
+        } catch (MqttException e) {
+            Log.d(LOG_TAG, "Error Publishing: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 }
